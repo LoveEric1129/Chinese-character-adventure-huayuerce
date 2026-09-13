@@ -1347,12 +1347,49 @@ body{
                     50%    {box-shadow:0 5px 0 rgba(0,0,0,.16), 0 0 0 12px #ffffff66}}
 .stage-map .stop .flag{left:calc(50% + 10px);top:-34px;width:46px;height:54px}
 @media (prefers-reduced-motion:reduce){.stop.here .dot{animation:none}}
+
+
+/* ---------------------------------------------------- 📝 汉字默写 ------- */
+/* 线索卡：给读音、给挖了空的词、给图 —— 就是不给字。露了就不是默写。 */
+.dict-clue{display:flex;align-items:center;gap:14px}
+.dict-clue .dc-e{font-size:40px;line-height:1}
+.dict-clue .dc-t{flex:1;min-width:0}
+.dict-clue .dc-t b{display:block;font-size:30px;font-weight:900;letter-spacing:3px}
+.dict-clue .dc-t span{color:var(--ink-soft);font-size:15px}
+.dict-check{text-align:center}
+.dict-check .dc-q{font-weight:800;font-size:17px;margin-bottom:10px}
+.dict-check .dc-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+
+/* ---------------------------------------------------- 📋 通关报告 ------- */
+.rep-head{text-align:center}
+.rep-head .rp-name{font-size:24px;font-weight:900}
+.rep-head .rp-sub{color:var(--ink-soft);font-size:14px;margin-top:2px}
+.rep-big{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}
+.rep-big .rb{background:#fff;border-radius:14px;padding:10px 4px;text-align:center;
+             box-shadow:0 3px 0 rgba(0,0,0,.07)}
+.rep-big .rb b{display:block;font-size:19px;font-weight:900}
+.rep-big .rb small{display:block;font-size:11px;color:var(--ink-soft);margin-top:2px}
+.rep-big .rb.ok{background:#e2f7e8}
+.rep-tab .rt-h,.rep-tab .rt-r{display:grid;grid-template-columns:1.1fr 1.3fr 1.3fr 1.3fr;
+                              align-items:center;gap:6px;padding:7px 2px}
+.rep-tab .rt-h{font-size:12px;color:var(--ink-soft);font-weight:800;
+               border-bottom:2px solid #0000000f}
+.rep-tab .rt-r{border-bottom:1px solid #0000000a;font-size:14px}
+.rep-tab .rt-r:last-child{border-bottom:none}
+.rep-tab .rt-c{font-size:22px;font-weight:900}
+.rep-tab .rt-r.none{opacity:.45}
+.rep-tab .ok{color:#2e9c5c;font-weight:800}
+.rep-tab .no{color:#c8681f;font-weight:800}
+.rep-sm{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.rep-sm b{display:block;font-size:18px;font-weight:900}
+.rep-sm small{display:block;font-size:11px;color:var(--ink-soft)}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="fx"></div>
-<script>const BUILD = "09-12 12:41";
+<script>const BUILD = "09-12 19:10";
 /* ===== 00-edition.js ===== */
 const EDITION = {
   id: "mz2",
@@ -2725,6 +2762,7 @@ const Store = {
         const d = JSON.parse(raw);
         this.data = Object.assign(BLANK(), d);
         this.data.cosmetics = Object.assign(BLANK().cosmetics, d.cosmetics || {});
+        this.heal();
         (this.data.addedChars || []).forEach(r => Data.addChar(r));
         Object.entries(this.data.unitOverrides || {}).forEach(([id, chars]) => {
           const u = Data.unit(id);
@@ -2733,6 +2771,21 @@ const Store = {
       }
     }catch(e){ console.warn('save unreadable, starting fresh', e); this.data = BLANK(); }
     return this.data;
+  },
+
+  /** 把老版本写下的记录补齐到当前格式。
+
+      Memory.rec() 本来就会在读的时候补字段，但代码里有十几处是直接
+      `Store.data.chars[ch]` 拿记录的 —— 绕过了那道补丁。只要有一处读到
+      老记录上不存在的字段（比如 firstTry.c），那一整页就抛错崩掉：孩子
+      看到的是"点了没反应"，而且看不出哪里坏了。
+
+      与其在十几个读取点各防一次，不如在装载存档的那一刻补一次。 */
+  heal(){
+    if (typeof Memory === 'undefined') return;
+    Object.keys(this.data.chars || {}).forEach(ch => {
+      try{ Memory.rec(ch); }catch(e){}
+    });
   },
 
   save(){
@@ -2834,6 +2887,7 @@ const Store = {
     const d = JSON.parse(text);
     if (!d || typeof d !== 'object') throw new Error('不是有效的存档');
     this.data = Object.assign(BLANK(), d);
+    this.heal();                     // 导入的存档可能是很久以前导出的
     this.save();
     return true;
   },
@@ -2883,6 +2937,11 @@ const Memory = {
        from an export file at any moment, so there is no single moment to
        migrate, and an old save must never lose the practice it already holds. */
     if (r){
+      /* skills 是后来才加的，老记录整个没有这一块 —— 而 recomputeMastery
+         直接读 r.skills[s].c，老存档一答题就崩。它必须排在最前面补。 */
+      if (!r.skills) r.skills = SKILLS.reduce((o, k) => (o[k] = {c:0, i:0}, o), {});
+      else SKILLS.forEach(k => { if (!r.skills[k]) r.skills[k] = {c:0, i:0}; });
+      if (!r.days)    r.days    = [];
       if (!r.firstTry) r.firstTry = {c:r.correct || 0, i:r.incorrect || 0};
       if (!r.confus)   r.confus   = {};           // 答错时错选成了谁
       if (!r.log)      r.log      = [];           // 最近 24 次作答
@@ -3094,7 +3153,7 @@ const Memory = {
         · 时间太久没见        — faded; he has not been wrong, he has been away */
   weak(pool){
     return (pool || this.known())
-      .map(ch => Store.data.chars[ch])
+      .map(ch => this.rec(ch))       // 走 rec() —— 它会顺手把老记录补齐
       .filter(r => {
         if (!r) return false;
         if (r.mastery >= 4 && this.fade(r) === 0) return false;   // 稳了
@@ -8556,6 +8615,192 @@ const SignIn = {
 };
 
 
+/* ===== 28-game-dictate.js ===== */
+/* =============================================================================
+   📝 汉字默写 — 路线的最后一关，也是唯一一关不给看范字的。
+
+   前面每一关都在帮他：象形字给图，描摹给淡淡的底稿，读故事把字放在句子里。
+   帮到最后总得撒手一次 —— 「看着范字能描下来」和「听见这个词能自己写出来」
+   是两回事，而后者才是家长和老师想知道的那件事。
+
+   判对错交给孩子自己（和旁边的大人）：写完把范字叠上去让他比对，他按
+   「写对了 / 没写对」。理由和「跟我读」那一关一样 —— 机器给七岁小孩的
+   手写打分不可靠，一个写对了却被判错的孩子，下次就不肯动笔了。
+   报告里这一项标着「自评」，不假装是考试成绩。
+
+   写出来的结果记在 recall 这个技能下 —— 记忆模型里它本来就是「凭空想起来」
+   的那一格，别的关卡都填不了它。
+   ========================================================================== */
+
+const GameDictate = {
+  id:'dictate', name:'汉字默写', icon:'📝', color:'b-grape',
+  blurb:'听词写字，这次不给看范字',
+
+  /** 只考课本要求会写的字 */
+  available(chars){
+    return (chars || []).filter(c => (Data.char(c) || {}).learn === '认写').length >= 1;
+  },
+
+  /** 题面：把词里的目标字挖掉。「牛肉」→「＿肉」，只给线索不给答案。 */
+  clue(ch){
+    const info = Data.char(ch) || {};
+    const w = (info.words || []).find(x => x.length > 1 && x.indexOf(ch) >= 0);
+    return w ? w.split(ch).join('＿') : (info.mean || '');
+  },
+
+  start(ctx){
+    const SIZE = 320;
+    const chars = (ctx.chars || []).filter(c => (Data.char(c) || {}).learn === '认写');
+    if (!chars.length) return ctx.onDone({game:'dictate', chars:[], correct:0, total:0});
+
+    const list = shuffle(chars.slice());
+    let i = 0, got = 0, asked = 0;
+
+    const scr = UI.screen({sky:'sky-kingdom', title:'📝 汉字默写', onBack:ctx.onQuit});
+    const body = el('div', {class:'scroll'});
+    scr.append(body);
+    UI.mount(scr);
+
+    function round(){
+      if (i >= list.length){
+        UI.confetti(40);
+        return ctx.onDone({game:'dictate', chars:list, correct:got, total:asked});
+      }
+      const ch = list[i], info = Data.char(ch) || {};
+      body.innerHTML = '';
+
+      const dots = el('div', {class:'wdots'});
+      list.forEach((_, k) => dots.append(el('i', {class:k < i ? 'on' : k === i ? 'now' : ''})));
+      body.append(el('div', {class:'write-head'},
+        el('div', {}, el('b', {}, `默写 ${i + 1} / ${list.length}`),
+           el('small', {}, '听一听，然后自己写出来'), dots),
+        UI.speaker(`${Say.inWord(ch)}`)));
+
+      /* 线索：读音 + 挖了空的词 + 图。字本身一个都不能露 —— 露了就不是默写。 */
+      const clue = el('div', {class:'card dict-clue'});
+      clue.append(el('div', {class:'dc-e'}, info.emoji || '📝'));
+      clue.append(el('div', {class:'dc-t'},
+        el('b', {}, GameDictate.clue(ch)),
+        el('span', {}, info.py || '')));
+      body.append(clue);
+
+      const card = el('div', {class:'card write-card'});
+      const box = el('div', {class:'gridbox', style:`width:${SIZE}px;height:${SIZE}px`});
+
+      // 空的米字格：只有格线，没有底稿
+      const bg = document.createElement('canvas');
+      bg.width = bg.height = SIZE * 2; bg.style.width = bg.style.height = SIZE + 'px';
+      const bgg = bg.getContext('2d'); bgg.scale(2, 2);
+      bgg.strokeStyle = '#e6ddf2'; bgg.lineWidth = 1.5; bgg.setLineDash([7, 6]);
+      [[SIZE/2, 0, SIZE/2, SIZE], [0, SIZE/2, SIZE, SIZE/2],
+       [0, 0, SIZE, SIZE], [SIZE, 0, 0, SIZE]].forEach(([x1, y1, x2, y2]) => {
+        bgg.beginPath(); bgg.moveTo(x1, y1); bgg.lineTo(x2, y2); bgg.stroke();
+      });
+
+      const ink = document.createElement('canvas');
+      ink.width = ink.height = SIZE * 2; ink.style.width = ink.style.height = SIZE + 'px';
+      ink.className = 'inklayer';
+      const ig = ink.getContext('2d'); ig.scale(2, 2);
+      ig.lineWidth = SIZE * 0.075; ig.lineCap = 'round'; ig.lineJoin = 'round';
+      ig.strokeStyle = '#2f2a3d';
+
+      box.append(bg, ink);
+      card.append(box);
+      body.append(card);
+
+      let drawing = false, strokes = 0, last = null;
+      const at = e => {
+        const r = ink.getBoundingClientRect();
+        return {x:(e.clientX - r.left) * (SIZE / r.width),
+                y:(e.clientY - r.top) * (SIZE / r.height)};
+      };
+      ink.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        ink.setPointerCapture(e.pointerId);
+        drawing = true; strokes++; last = at(e);
+        ig.beginPath(); ig.moveTo(last.x, last.y); ig.lineTo(last.x + 0.1, last.y); ig.stroke();
+      });
+      ink.addEventListener('pointermove', e => {
+        if (!drawing) return;
+        const p = at(e);
+        ig.beginPath(); ig.moveTo(last.x, last.y); ig.lineTo(p.x, p.y); ig.stroke();
+        last = p;
+      });
+      const stop = () => { drawing = false; };
+      ink.addEventListener('pointerup', stop);
+      ink.addEventListener('pointercancel', stop);
+
+      const bar = el('div', {class:'story-bar'});
+      const again = el('button', {class:'mini'}, '🔊 再听一遍');
+      again.onclick = () => { Sfx.tap(); Say.speak(Say.inWord(ch), {rate:0.72, interrupt:true}); };
+      const clear = el('button', {class:'mini'}, '↩️ 擦掉重写');
+      clear.onclick = () => { Sfx.tap(); ig.clearRect(0, 0, SIZE, SIZE); strokes = 0; };
+      bar.append(again, clear);
+      body.append(bar);
+
+      /* 「想不起来」不是失败，是"这个字要补课" —— 给他一条不用瞎猜的出路，
+         按下去照样记一次没写出来，下次复习会先安排它。 */
+      const help = el('button', {class:'mini'}, '🤔 想不起来');
+      help.onclick = () => { Sfx.soft(); reveal(false, true); };
+      bar.append(help);
+
+      body.append(UI.bigBtn('b-gold', '✅', '写好了', '',
+        () => { if (!strokes){ Sfx.soft();
+                  UI.toast({emoji:'📝', text:'还没写呢', sub:'用手指在格子里写一写', ms:1100});
+                  return; }
+                reveal(true, false); }));
+
+      Say.announce(`我们来写${Say.inWord(ch)}`, 320);
+
+      /* ------------------------------------------------ 对答案 --------- */
+      function reveal(wrote, gaveUp){
+        // 把范字叠在他写的字上面，让他自己看差在哪儿
+        bgg.globalAlpha = 0.32; GameWrite.paint(bgg, ch, SIZE, 'fill'); bgg.globalAlpha = 1;
+        Say.char(ch);
+
+        body.querySelectorAll('.big-btn, .story-bar').forEach(n => n.remove());
+        const ask = el('div', {class:'card dict-check'});
+        ask.append(el('div', {class:'dc-q'},
+          gaveUp ? `这个字是「${ch}」，看一看，记住它` : `对一对 —— 你写的和「${ch}」像吗？`));
+
+        if (gaveUp){
+          ask.append(UI.bigBtn('b-slate', '👀', '记住了，下一个', '', () => done(false)));
+        } else {
+          const row = el('div', {class:'dc-row'});
+          row.append(UI.bigBtn('b-leaf', '✅', '写对了', '', () => done(true)));
+          row.append(UI.bigBtn('b-rose', '✍️', '没写对', '再看一眼范字', () => done(false)));
+          ask.append(row);
+          /* 机器给的相似度只当一句悄悄话，不做判决 —— 判决权在孩子和大人手里 */
+          const g = GameWrite.grade(ch, ink);
+          ask.append(el('div', {class:'hint', style:'margin-top:6px'},
+            g.stars >= 2 ? '（看着挺像的）' : '（形状差得有点多，仔细比比看）'));
+        }
+        body.append(ask);
+      }
+
+      function done(ok){
+        asked++;
+        if (ok) got++;
+        Memory.score(ch, 'recall', ok);
+        Store.noteDay('seen'); Store.noteDay(ok ? 'right' : 'wrong');
+        if (ok){
+          Sfx.great(); UI.sparkleAt(body, 12);
+          Store.award({stars:1, coins:10, xp:10});
+          Say.cheer('praise', true);
+        } else {
+          Sfx.soft();
+          Store.award({coins:4, xp:4});
+        }
+        i++;
+        setTimeout(round, 700);
+      }
+    }
+
+    setTimeout(round, 200);
+  },
+};
+
+
 /* ===== 30-screens.js ===== */
 /* =============================================================================
    SCREENS — home, adventure map, unit page, session runner, 图鉴, weak mode,
@@ -8566,13 +8811,17 @@ const SignIn = {
    meet it → recognise it → take it apart → mend it → recall it many ways →
    use it in a sentence → say it fast. 汉字寻宝 was dropped after playtesting
    (Eric: "不好玩，老是卡住"); 汉字保卫战 is the action game now. */
+/* 顺序就是教学顺序：先认识，再拆解，再用起来，最后动笔 ——
+   默写压在保卫战之后当最后一关，因为它是唯一一关不给看范字的，
+   前面所有的帮助都撤掉，考的才是他自己记住了多少。 */
 const GAMES = [GameOrigin, GameMonster, GamePolish, GameFactory, GameRepair,
                GameMatch, GamePinyin, GameContext, GameSpeed, GameWrite,
-               GameRead, GameBattle];
+               GameRead, GameBattle, GameDictate];
 const STAGE_NOTE = {
   origin:'认识它', monster:'认出它', polish:'擦出来认', factory:'拆开看',
   repair:'补好它', match:'换个方式想起它', context:'用起来', speed:'一眼认出',
   pinyin:'读出它的音', write:'动手写一写', read:'在故事里读到它', battle:'用它打僵尸',
+  dictate:'不看范字写出来',
 };
 /* Extra practice = games that are NOT stages of the route.
 
@@ -8845,7 +9094,7 @@ const Screens = {
       actually been done with them. An entry that opens an empty 图鉴 or a Boss
       he cannot fight teaches him the menu lies, so each one reports its real
       state and says what would unlock it. */
-  toolsFor(chars, back, label){
+  toolsFor(chars, back, label, unitId0){
     const met = chars.filter(c => Memory.seen(c));
     const buyable = (typeof PLANTS !== 'undefined' ? PLANTS : [])
       .filter(pl => !Store.owns(pl.id) && Store.data.stars >= pl.star);
@@ -8859,6 +9108,10 @@ const Screens = {
                            : `还差 ${PVZ_MIN_CHARS - met.length} 个字`,
        hint:`僵尸身上要戴你认识的字，至少先学 ${PVZ_MIN_CHARS} 个`,
        go:() => this.pvzMap({chars, back, label})},
+
+      {ready:true, color:'b-sky', ic:'📋', name:'通关报告',
+       sub:'这一课学到哪一步了',
+       go:() => this.report(unitId0, back && back.go)},
 
       {ready:true, color:'b-rose', ic:'🛒', name:'商店',
        sub:buyable.length ? `⭐ ${Store.data.stars}　能买 ${buyable.length} 种`
@@ -9216,7 +9469,7 @@ const Screens = {
     scroll.append(path);
 
     scroll.append(this.toolsFor(u.chars,
-      {unitId, go:() => this.unit(unitId)}, `这一关`));
+      {unitId, go:() => this.unit(unitId)}, `这一关`, unitId));
 
     s.append(scroll);
     UI.mount(s);
@@ -9401,6 +9654,10 @@ const Screens = {
     // wants another go at the same unit, and bouncing him to the top menu made
     // him re-navigate three screens to get there.
     if (u){
+      /* 报告放在最上面：一整轮走完，最想看的就是"到底学到什么程度了"。
+         小结那张卡是说给孩子听的，报告是给大人看的，分开两页。 */
+      scroll.append(UI.bigBtn('b-sky', '📋', '通关报告',
+        '这一课每个字学到哪一步　可截图给老师', () => this.report(u.id)));
       scroll.append(UI.bigBtn('b-gold', '↩️', '回到这一节',
         `${u.name}　还能再练一关`, () => this.unit(u.id)));
       scroll.append(UI.bigBtn('b-slate', '🏠', '回到冒险地图', '', () => this.home()));
@@ -9751,6 +10008,135 @@ const Library = {
     card.append(wrap);
     return card;
   },
+};
+
+
+/* ===== 35-report.js ===== */
+/* =============================================================================
+   📋 通关报告 — 一屏说清「这一课学到什么程度了」，截图就能交给老师。
+
+   为什么单独做一页，而不是把数字塞进通关小结：小结是给孩子看的（撒花、
+   拿到几颗星、明天见），说的是"你真棒"；报告是给大人看的，说的是"哪几个
+   字还没过关"。两种话写在一张纸上，谁都读不痛快。
+
+   每一项都注明来源，不把两种不同硬度的证据混着说：
+     · 认读 / 掌握  —— 游戏判的对错，客观
+     · 默写        —— 孩子自己按的「写对了 / 没写对」，标着「自评」
+   一份看得出水分在哪儿的报告，比一份漂亮但不知道怎么来的有用。
+   ========================================================================== */
+
+const Report = {
+
+  /** 这一课每个字的一行数据 */
+  rows(unitId){
+    return Data.unitChars(unitId).map(ch => {
+      const r = Store.data.chars[ch] || null;
+      const sk = (r && r.skills) || {};
+      const rec = sk.recall || {c:0, i:0};
+      const right = r ? (r.correct || 0) : 0;
+      const wrong = r ? (r.incorrect || 0) : 0;
+      return {
+        ch,
+        met:    !!r,
+        level:  r ? Memory.level(ch) : 0,          // 0–3
+        right, wrong,
+        acc:    right + wrong ? right / (right + wrong) : 0,
+        // 默写：写对过就算过；只错过就是没过；没考过是 null
+        dict:   rec.c > 0 ? true : (rec.i > 0 ? false : null),
+        skills: SKILLS.filter(s => (sk[s] || {}).c > 0).length,
+      };
+    });
+  },
+
+  sum(unitId){
+    const rs = this.rows(unitId);
+    const d = rs.filter(r => r.dict !== null);
+    return {
+      rows: rs,
+      total: rs.length,
+      met: rs.filter(r => r.met).length,
+      mastered: rs.filter(r => r.level >= 3).length,
+      dictDone: d.length,
+      dictOK: d.filter(r => r.dict).length,
+      right: rs.reduce((a, r) => a + r.right, 0),
+      wrong: rs.reduce((a, r) => a + r.wrong, 0),
+    };
+  },
+
+  today(){
+    const t = new Date();
+    return `${t.getFullYear()}年${t.getMonth() + 1}月${t.getDate()}日`;
+  },
+};
+
+/** opts: {unitId, back} */
+Screens.report = function(unitId, back){
+  const u = Data.unit(unitId);
+  if (!u) return this.home();
+  const S = Report.sum(unitId);
+  const who = Store.who || Store.data.name;
+
+  const s = UI.screen({sky:'sky-day', title:'📋 通关报告',
+                       onBack: back || (() => this.unit(unitId)), scenery:false});
+  const scroll = el('div', {class:'scroll'});
+
+  /* 抬头：谁、哪一课、哪一天 —— 截图交上去，这三样缺一不可 */
+  const head = el('div', {class:'card rep-head'});
+  head.append(el('div', {class:'rp-name'}, who));
+  head.append(el('div', {class:'rp-sub'}, `${EDITION.grade || u.grade || ''}　${u.name}`));
+  head.append(el('div', {class:'rp-sub'}, Report.today()));
+  scroll.append(head);
+
+  /* 四个大数字 */
+  const big = el('div', {class:'rep-big'});
+  const cell = (n, of, lbl, cls) => el('div', {class:'rb ' + (cls || '')},
+    el('b', {}, of == null ? String(n) : `${n}/${of}`), el('small', {}, lbl));
+  big.append(cell(S.met, S.total, '认过的字'));
+  big.append(cell(S.mastered, S.total, '已掌握', S.mastered === S.total ? 'ok' : ''));
+  big.append(cell(S.dictOK, S.total, '默写写对', S.dictOK === S.total ? 'ok' : ''));
+  big.append(cell(S.right + S.wrong ? Math.round(S.right / (S.right + S.wrong) * 100) + '%' : '—',
+                  null, '答题正确率'));
+  scroll.append(big);
+
+  /* 逐字明细。一行一个字，老师一眼看得出哪个还没过。 */
+  const tb = el('div', {class:'card rep-tab'});
+  tb.append(el('div', {class:'rt-h'},
+    el('span', {}, '汉字'), el('span', {}, '掌握'),
+    el('span', {}, '答对/答错'), el('span', {}, '默写')));
+  S.rows.forEach(r => {
+    const row = el('div', {class:'rt-r' + (r.met ? '' : ' none')});
+    row.append(el('span', {class:'rt-c'}, r.ch));
+    row.append(el('span', {}, r.met ? '★'.repeat(r.level) + '☆'.repeat(3 - r.level) : '—'));
+    row.append(el('span', {}, r.met ? `${r.right} / ${r.wrong}` : '—'));
+    row.append(el('span', {class:r.dict === true ? 'ok' : r.dict === false ? 'no' : ''},
+                  r.dict === true ? '✅' : r.dict === false ? '✍️ 待加强' : '—'));
+    tb.append(row);
+  });
+  scroll.append(tb);
+
+  /* 默写这一项是孩子自己判的，报告里必须说清楚，不然老师会当成考试成绩 */
+  scroll.append(el('div', {class:'hint', style:'text-align:left;padding:2px 4px 10px'},
+    S.dictDone
+      ? `默写由孩子对照范字自评（已默 ${S.dictDone} 个字）。「掌握」和「答对/答错」是游戏判的。`
+      : '还没做过默写 —— 走完一整轮冒险，最后一关就是默写。'));
+
+  /* 累计：这个孩子在这个游戏里一共走了多远 */
+  const all = el('div', {class:'card'});
+  all.append(el('div', {style:'font-weight:800;margin-bottom:8px'}, '累计'));
+  const g = el('div', {class:'rep-sm'});
+  [[`${Memory.known().length}`, '认过的字'],
+   [`${(Store.data.daysPlayed || []).length}`, '学习天数'],
+   [`${Store.data.streak}`, '连续天数'],
+   [`${Store.data.stars}`, '汉字星']].forEach(([n, l]) =>
+    g.append(el('div', {}, el('b', {}, n), el('small', {}, l))));
+  all.append(g);
+  scroll.append(all);
+
+  scroll.append(el('div', {class:'hint'}, '截图这一页，就可以交给老师了'));
+  scroll.append(UI.bigBtn('b-slate', '↩️', '回到这一课', '', () => Screens.unit(unitId)));
+
+  s.append(scroll);
+  UI.mount(s);
 };
 
 
