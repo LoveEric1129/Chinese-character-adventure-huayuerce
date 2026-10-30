@@ -267,8 +267,17 @@ body{
 .patch canvas{display:block;border-radius:12px}
 
 /* --------------------------------------------------------------- match ---- */
-.grid-m{display:grid;gap:10px;grid-template-columns:repeat(4,1fr);padding:0 16px}
+/* 记忆配对的牌：6 对 = 12 张，4 列 3 行。牌是正方形，只按宽度摊开的话，
+   电脑和横放的 iPad 上一张牌有三百多像素高，第三行整排掉到屏幕外 ——
+   这一关的屏幕不滚动，掉出去的牌看不见也点不到，孩子就说「请」没有词。
+   所以牌的边长同时受宽和高限制：宽度均分、高度留出题板和标题后三行放得下、
+   再封顶 120px，三者取最小，整副牌居中。 */
+.grid-m{
+  --mc:min(calc((100vw - 62px) / 4), calc((100vh - 250px) / 3), 120px);
+  display:grid;gap:10px;grid-template-columns:repeat(4,var(--mc));justify-content:center;padding:0 16px
+}
 .mcard{
+  width:var(--mc);height:var(--mc);
   aspect-ratio:1;border:none;cursor:pointer;border-radius:18px;font-family:var(--font);
   background:linear-gradient(#8a6be2,#6a49c6);color:#fff;font-size:13px;
   box-shadow:0 5px 0 #4f34a0;display:grid;place-items:center;position:relative
@@ -1394,7 +1403,7 @@ body{
 <body>
 <div id="app"></div>
 <div id="fx"></div>
-<script>const BUILD = "09-18 14:03";
+<script>const BUILD = "10-30 13:20";
 /* ===== 00-edition.js ===== */
 const EDITION = {
   id: "mz2-from6",
@@ -2528,6 +2537,10 @@ const STORY_PY = {
   雨:'yǔ', 雾:'wù', 静:'jìng', 靠:'kào', 面:'miàn', 顾:'gù', 颜:'yán', 饭:'fàn',
   香:'xiāng', 驮:'tuó', 鱼:'yú', 鸟:'niǎo', 鸡:'jī', 鸭:'yā', 鹿:'lù', 黄:'huáng',
   黑:'hēi', 鼠:'shǔ', 鼻:'bí',
+  园:'yuán', 蛋:'dàn', 她:'tā', 急:'jí', 处:'chù', 第:'dì', 摇:'yáo',
+  往:'wǎng', 唱:'chàng', 村:'cūn', 可:'kě', 十:'shí', 二:'èr', 穿:'chuān', 衣:'yī',
+  号:'hào', 初:'chū', 套:'tào', 明:'míng', 三:'sān', 算:'suàn', 枝:'zhī', 刚:'gāng',
+  敢:'gǎn', 狗:'gǒu', 汪:'wāng', 推:'tuī', 功:'gōng', 因:'yīn', 挡:'dǎng',
   烫:'tàng', 睡:'shuì', 办:'bàn', 层:'céng', 屋:'wū', 法:'fǎ', 楼:'lóu', 奶:'nǎi', 塘:'táng', 虎:'hǔ', 东:'dōng', 西:'xī', 匹:'pǐ', 变:'biàn', 女:'nǚ', 八:'bā', 刀:'dāo', 记:'jì', 代:'dài', 传:'chuán', 始:'shǐ', 造:'zào'
 };
 
@@ -2537,6 +2550,9 @@ const PY_CTX = [
   ['长出', '长', 'zhǎng'],  ['长大', '长', 'zhǎng'],  ['长高', '长', 'zhǎng'],
   ['长满', '长', 'zhǎng'],  ['长在', '长', 'zhǎng'],  ['长得', '长', 'zhǎng'],
   ['长成', '长', 'zhǎng'],  ['种地', '种', 'zhòng'],  ['以为', '为', 'wéi'],
+  // 第九课教的「长」读 zhǎng（长高），故事里碰到 cháng 的用法要按词改回来
+  ['又长', '长', 'cháng'],  ['长长', '长', 'cháng'],  ['很长', '长', 'cháng'],
+  ['长的', '长', 'cháng'],  ['长长的', '长', 'cháng'],
   ['因为', '为', 'wèi'],    ['睡觉', '觉', 'jiào'],   ['觉得', '觉', 'jué'],
   ['干净', '干', 'gān'],    ['干干', '干', 'gān'],    ['数一', '数', 'shǔ'],
 ];
@@ -3068,7 +3084,7 @@ const Story = {
         '小鱼不会跑，也不会飞，他在水里游。',
         '小鸟不会游，他在天上飞。',
         '青蛙会跳，也会游，他跳进水里，一下子就不见了。',
-        '天黑了，水里黑黑的，大家都回家了。',
+        '天黑了，水里黑黑的，怎么看也看不见，大家都回家了。',
       ],
       ask:[
         {q:'小鱼在哪里回家？', options:['水里', '天上', '山上'], a:0},
@@ -3092,7 +3108,7 @@ const Story = {
       title:'小雪手中一枝笔', emoji:'✏️',
       lines:[
         '小雪手中有一枝笔，是用高山上的羊毛做的。',
-        '这枝毛笔好写，也好画。',
+        '因为是羊毛做的，这枝毛笔好写，也好画。',
         '刚才她画了一条小河，河里有鱼。',
         '以后她还要画大海，画天上的小鸟。',
       ],
@@ -3106,7 +3122,7 @@ const Story = {
       lines:[
         '小老鼠贝贝住在山洞里。他很爱说话。',
         '一只猫来了，就在洞外面。贝贝不敢出去。',
-        '爸爸妈妈学狗叫：「汪！汪！」猫听见了，跑了。',
+        '爸爸妈妈学狗叫，贝贝也一同叫：「汪！汪！」猫听见了，不敢进来，跑了。',
         '贝贝说：「学中文真有用，学狗叫也有用！」',
       ],
       ask:[
