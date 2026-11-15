@@ -2743,9 +2743,9 @@ const Story = {
   奶:{ch:'奶',py:'nǎi',mean:'牛奶、奶奶',en:'milk; grandma',emoji:'🥛',learn:'认写',
       rad:'女部',bihua:5,
       words:['牛奶', '奶奶'],sent:{text:'我每天喝牛___。',pic:'🥛'},near:['妈', '包']},
-  还:{ch:'还',py:'hái',mean:'还',en:'still; to return',emoji:'🔄',learn:'认写',
+  还:{ch:'还',py:'hái',mean:'还',en:'still; also',emoji:'🔄',learn:'认写',
       rad:'辶部',bihua:7,
-      words:['还没来', '还给'],sent:{text:'他___没来。',pic:'🔄'},near:['过', '送']},
+      words:['还没来', '还好'],sent:{text:'他___没来。',pic:'🔄'},near:['过', '送']},
   包:{ch:'包',py:'bāo',mean:'包子、书包',en:'bag; bun',emoji:'🎒',learn:'认写',
       rad:'勹部',bihua:5,
       words:['包子', '书包'],sent:{text:'我的___里有书。',pic:'🎒'},near:['爸', '可']},
@@ -4221,6 +4221,8 @@ const Say = {
       Baked at a teaching pace; the tone knobs the rest of the game asks for
       become playbackRate, so 汉字 still comes out slower than 表扬 does. */
   playClip(job, done){
+    // 旧录音可能含 huán，含「还」的句子改用固定 hái 的语音合成。
+    if (job.text.includes('还')) return false;
     const src = VOICE_PACK[job.text];
     if (!src) return false;
     try{
@@ -4461,6 +4463,9 @@ const Say = {
        「神么」反而把词读坏了。所以挨着「么」的放过，落单的（「什么的什」
        「只敲什么的什」「哪个是什么的什？」）才换。 */
     t = t.replace(/什(?!么)/g, '神');
+    /* 还在本教材中统一读 hái。用单音字「孩」交给语音合成器，
+       避免把「还没来」「还给他」误读为 huán。屏幕文字不变。 */
+    t = t.replace(/还/g, '孩');
     return t;
   },
 
